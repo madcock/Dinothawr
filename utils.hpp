@@ -15,6 +15,7 @@
 #include <limits>
 #include <memory>
 #include <errno.h>
+#include <functional>
 
 #include <pugixml/pugixml.hpp>
 
