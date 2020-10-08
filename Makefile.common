@@ -60,10 +60,11 @@ SOURCES_C := \
 	$(DEPS_DIR)/libz/uncompr.c \
 	$(DEPS_DIR)/libz/zutil.c
 
+SOURCES_C += $(CORE_DIR)/rpng_front.c
+
 ifeq ($(STATIC_LINKING), 1)
 else
 SOURCES_C += \
-				 $(CORE_DIR)/rpng_front.c \
 				 $(LIBRETRO_COMM_DIR)/file/nbio/nbio_stdio.c \
 				 $(LIBRETRO_COMM_DIR)/audio/conversion/float_to_s16.c \
 				 $(LIBRETRO_COMM_DIR)/audio/conversion/s16_to_float.c \
