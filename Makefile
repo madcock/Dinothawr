@@ -60,6 +60,15 @@ else ifeq ($(platform), osx)
 	OSXVER = `sw_vers -productVersion | cut -d. -f 2`
 	OSX_LT_MAVERICKS = `(( $(OSXVER) <= 9)) && echo "YES"`
         fpic += $(MINVERSION)
+
+   ifeq ($(CROSS_COMPILE),1)
+		TARGET_RULE   = -target $(LIBRETRO_APPLE_PLATFORM) -isysroot $(LIBRETRO_APPLE_ISYSROOT)
+		CFLAGS   += $(TARGET_RULE)
+		CPPFLAGS += $(TARGET_RULE)
+		CXXFLAGS += $(TARGET_RULE)
+		LDFLAGS  += $(TARGET_RULE)
+   endif
+
 	ifeq ($(UNIVERSAL),1)
 		CFLAGS += $(ARCHFLAGS)
 		CXXFLAGS += $(ARCHFLAGS)
@@ -105,8 +114,8 @@ else ifeq ($(platform), tvos-arm64)
         ifeq ($(IOSSDK),)
                 IOSSDK := $(shell xcodebuild -version -sdk iphoneos Path)
         endif
-        CC = clang -arch arm64 -isysroot $(IOSSDK)
-        CXX = clang++ -arch arm64 -isysroot $(IOSSDK)
+        CC = cc -arch arm64 -isysroot $(IOSSDK)
+        CXX = c++ -arch arm64 -isysroot $(IOSSDK)
         CFLAGS += -DIOS -DDONT_WANT_ARM_OPTIMIZATIONS
 
         ARCH := arm64
@@ -114,7 +123,7 @@ else ifeq ($(platform), tvos-arm64)
 
 # Theos
 else ifeq ($(platform), theos_ios)
-	TARGET_CXX=clang++
+	TARGET_CXX=c++
 	DEPLOYMENT_IOSVERSION = 5.0
 	TARGET = iphone:latest:$(DEPLOYMENT_IOSVERSION)
 	ARCHS = armv7 armv7s
