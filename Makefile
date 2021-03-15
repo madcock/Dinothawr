@@ -54,20 +54,51 @@ else ifeq ($(platform), osx)
 	TARGET := $(TARGET_NAME)_libretro.dylib
 	fpic := -fPIC
 	SHARED := -dynamiclib
+        MINVERSION :=-mmacosx-version-min=10.8
 	LDFLAGS += -stdlib=libc++
 	CXXFLAGS += $(CXX11) $(LDFLAGS)
 	OSXVER = `sw_vers -productVersion | cut -d. -f 2`
 	OSX_LT_MAVERICKS = `(( $(OSXVER) <= 9)) && echo "YES"`
-        fpic += -mmacosx-version-min=10.8
-	ifndef ($(NOUNIVERSAL))
+        fpic += $(MINVERSION)
+	ifeq ($(UNIVERSAL),1)
 		CFLAGS += $(ARCHFLAGS)
 		CXXFLAGS += $(ARCHFLAGS)
 		LDFLAGS += $(ARCHFLAGS)
 	endif
+        CFLAGS += -DDONT_WANT_ARM_OPTIMIZATIONS
+        HAVE_NEON = 0
 
 # iOS
-else ifeq ($(platform), ios-arm64)
-        TARGET := $(TARGET_NAME)_libretro_ios.dylib
+else ifneq (,$(findstring ios,$(platform)))
+
+	TARGET := $(TARGET_NAME)_libretro_ios.dylib
+	fpic := -fPIC
+	SHARED := -dynamiclib
+	LDFLAGS += -stdlib=libc++
+        MINVERSION :=
+	ifeq ($(IOSSDK),)
+		IOSSDK := $(shell xcodebuild -version -sdk iphoneos Path)
+	endif
+         HAVE_NEON=1
+ifeq ($(platform),$(filter $(platform),ios9 ios-arm64))
+	CC = cc -arch arm64 -isysroot $(IOSSDK) -marm
+	CXX = c++ -arch arm64 -isysroot $(IOSSDK) -marm
+else
+	CC = cc -arch armv7 -isysroot $(IOSSDK) -marm
+	CXX = c++ -arch armv7 -isysroot $(IOSSDK) -marm
+endif
+	CXXFLAGS += $(CXX11) $(LDFLAGS)
+ifeq ($(platform),$(filter $(platform),ios9 ios-arm64))
+        MINVERSION = -miphoneos-version-min=8.0
+else
+        MINVERSION = -miphoneos-version-min=6.0
+endif
+	CXXFLAGS += $(MINVERSION)
+        CFLAGS += -DIOS -DDONT_WANT_ARM_OPTIMIZATIONS
+        HAVE_NEON = 0
+
+else ifeq ($(platform), tvos-arm64)
+        TARGET := $(TARGET_NAME)_libretro_tvos.dylib
         APPLE := 1
         SHARED := -dynamiclib
         fpic := -fPIC
@@ -76,44 +107,10 @@ else ifeq ($(platform), ios-arm64)
         endif
         CC = clang -arch arm64 -isysroot $(IOSSDK)
         CXX = clang++ -arch arm64 -isysroot $(IOSSDK)
-        CC_AS = perl ./tools/gas-preprocessor.pl $(CC)
         CFLAGS += -DIOS -DDONT_WANT_ARM_OPTIMIZATIONS
 
-        CC     += -miphoneos-version-min=8.0
-        CXX    += -miphoneos-version-min=8.0
-        CC_AS  += -miphoneos-version-min=8.0
-        CFLAGS += -miphoneos-version-min=8.0
         ARCH := arm64
         HAVE_NEON = 0
-        use_cyclone = 0
-        use_fame = 1
-        use_drz80 = 0
-        use_cz80 = 1
-        use_sh2drc = 0
-        use_svpdrc = 0
-else ifneq (,$(findstring ios,$(platform)))
-
-	TARGET := $(TARGET_NAME)_libretro_ios.dylib
-	fpic := -fPIC
-	SHARED := -dynamiclib
-	LDFLAGS += -stdlib=libc++
-	ifeq ($(IOSSDK),)
-		IOSSDK := $(shell xcodebuild -version -sdk iphoneos Path)
-	endif
-         HAVE_NEON=1
-	CC = cc -arch armv7 -isysroot $(IOSSDK) -marm
-	CXX = c++ -arch armv7 -isysroot $(IOSSDK) -marm
-	LD  = armv7-apple-darwin11-ld
-	CXXFLAGS += $(CXX11) $(LDFLAGS)
-ifeq ($(platform),ios9)
-	CC += -miphoneos-version-min=8.0
-	CXX += -miphoneos-version-min=8.0
-	CXXFLAGS += -miphoneos-version-min=8.0
-else
-	CC += -miphoneos-version-min=6.0
-	CXX += -miphoneos-version-min=6.0
-	CXXFLAGS += -miphoneos-version-min=6.0
-endif
 
 # Theos
 else ifeq ($(platform), theos_ios)
