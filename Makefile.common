@@ -21,8 +21,6 @@ SOURCES_CXX := $(CORE_DIR)/bg_manager.cpp \
 SOURCES_C := \
 	$(DEPS_DIR)/ogg/bitwise.c \
 	$(DEPS_DIR)/ogg/framing.c \
-	$(DEPS_DIR)/vorbis/analysis.c \
-	$(DEPS_DIR)/vorbis/barkmel.c \
 	$(DEPS_DIR)/vorbis/bitrate.c \
 	$(DEPS_DIR)/vorbis/block.c \
 	$(DEPS_DIR)/vorbis/codebook.c \
