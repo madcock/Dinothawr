@@ -28,7 +28,6 @@ SOURCES_C := \
 	$(DEPS_DIR)/vorbis/floor0.c \
 	$(DEPS_DIR)/vorbis/floor1.c \
 	$(DEPS_DIR)/vorbis/info.c \
-	$(DEPS_DIR)/vorbis/lookup.c \
 	$(DEPS_DIR)/vorbis/lpc.c \
 	$(DEPS_DIR)/vorbis/lsp.c \
 	$(DEPS_DIR)/vorbis/mapping0.c \
