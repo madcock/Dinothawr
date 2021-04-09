@@ -22,19 +22,9 @@
 #include <assert.h>
 #include <wchar.h>
 
-#ifndef PUGIXML_NO_XPATH
 #	include <math.h>
 #	include <float.h>
-#	ifdef PUGIXML_NO_EXCEPTIONS
-#		include <setjmp.h>
-#	endif
-#endif
-
-#ifndef PUGIXML_NO_STL
-#	include <istream>
-#	include <ostream>
-#	include <string>
-#endif
+#  include <setjmp.h>
 
 // For placement new
 #include <new>
@@ -206,7 +196,6 @@ PUGI__NS_BEGIN
 #endif
 PUGI__NS_END
 
-#if !defined(PUGIXML_NO_STL) || !defined(PUGIXML_NO_XPATH)
 // auto_ptr-like buffer holder for exception recovery
 PUGI__NS_BEGIN
 	struct buffer_holder
@@ -231,7 +220,6 @@ PUGI__NS_BEGIN
 		}
 	};
 PUGI__NS_END
-#endif
 
 PUGI__NS_BEGIN
 	static const size_t xml_memory_page_size =
@@ -1468,47 +1456,6 @@ PUGI__NS_BEGIN
 		buffer[size] = 0;
 	}
 	
-#ifndef PUGIXML_NO_STL
-	PUGI__FN std::string as_utf8_impl(const wchar_t* str, size_t length)
-	{
-		// first pass: get length in utf8 characters
-		size_t size = as_utf8_begin(str, length);
-
-		// allocate resulting string
-		std::string result;
-		result.resize(size);
-
-		// second pass: convert to utf8
-		if (size > 0) as_utf8_end(&result[0], size, str, length);
-
-		return result;
-	}
-
-	PUGI__FN std::basic_string<wchar_t> as_wide_impl(const char* str, size_t size)
-	{
-		const uint8_t* data = reinterpret_cast<const uint8_t*>(str);
-
-		// first pass: get length in wchar_t units
-		size_t length = utf_decoder<wchar_counter>::decode_utf8_block(data, size, 0);
-
-		// allocate resulting string
-		std::basic_string<wchar_t> result;
-		result.resize(length);
-
-		// second pass: convert to wchar_t
-		if (length > 0)
-		{
-			wchar_writer::value_type begin = reinterpret_cast<wchar_writer::value_type>(&result[0]);
-			wchar_writer::value_type end = utf_decoder<wchar_writer>::decode_utf8_block(data, size, begin);
-
-			assert(begin + length == end);
-			(void)!end;
-		}
-
-		return result;
-	}
-#endif
-
 	inline bool strcpy_insitu_allow(size_t length, uintptr_t allocated, char_t* target)
 	{
 		assert(target);
@@ -3461,138 +3408,6 @@ PUGI__NS_BEGIN
 		return doc.load_buffer_inplace_own(contents, size, options, encoding);
 	}
 
-#ifndef PUGIXML_NO_STL
-	template <typename T> struct xml_stream_chunk
-	{
-		static xml_stream_chunk* create()
-		{
-			void* memory = xml_memory::allocate(sizeof(xml_stream_chunk));
-			
-			return new (memory) xml_stream_chunk();
-		}
-
-		static void destroy(void* ptr)
-		{
-			xml_stream_chunk* chunk = static_cast<xml_stream_chunk*>(ptr);
-
-			// free chunk chain
-			while (chunk)
-			{
-				xml_stream_chunk* next = chunk->next;
-				xml_memory::deallocate(chunk);
-				chunk = next;
-			}
-		}
-
-		xml_stream_chunk(): next(0), size(0)
-		{
-		}
-
-		xml_stream_chunk* next;
-		size_t size;
-
-		T data[xml_memory_page_size / sizeof(T)];
-	};
-
-	template <typename T> PUGI__FN xml_parse_status load_stream_data_noseek(std::basic_istream<T>& stream, void** out_buffer, size_t* out_size)
-	{
-		buffer_holder chunks(0, xml_stream_chunk<T>::destroy);
-
-		// read file to a chunk list
-		size_t total = 0;
-		xml_stream_chunk<T>* last = 0;
-
-		while (!stream.eof())
-		{
-			// allocate new chunk
-			xml_stream_chunk<T>* chunk = xml_stream_chunk<T>::create();
-			if (!chunk) return status_out_of_memory;
-
-			// append chunk to list
-			if (last) last = last->next = chunk;
-			else chunks.data = last = chunk;
-
-			// read data to chunk
-			stream.read(chunk->data, static_cast<std::streamsize>(sizeof(chunk->data) / sizeof(T)));
-			chunk->size = static_cast<size_t>(stream.gcount()) * sizeof(T);
-
-			// read may set failbit | eofbit in case gcount() is less than read length, so check for other I/O errors
-			if (stream.bad() || (!stream.eof() && stream.fail())) return status_io_error;
-
-			// guard against huge files (chunk size is small enough to make this overflow check work)
-			if (total + chunk->size < total) return status_out_of_memory;
-			total += chunk->size;
-		}
-
-		// copy chunk list to a contiguous buffer
-		char* buffer = static_cast<char*>(xml_memory::allocate(total));
-		if (!buffer) return status_out_of_memory;
-
-		char* write = buffer;
-
-		for (xml_stream_chunk<T>* chunk = static_cast<xml_stream_chunk<T>*>(chunks.data); chunk; chunk = chunk->next)
-		{
-			assert(write + chunk->size <= buffer + total);
-			memcpy(write, chunk->data, chunk->size);
-			write += chunk->size;
-		}
-
-		assert(write == buffer + total);
-
-		// return buffer
-		*out_buffer = buffer;
-		*out_size = total;
-
-		return status_ok;
-	}
-
-	template <typename T> PUGI__FN xml_parse_status load_stream_data_seek(std::basic_istream<T>& stream, void** out_buffer, size_t* out_size)
-	{
-		// get length of remaining data in stream
-		typename std::basic_istream<T>::pos_type pos = stream.tellg();
-		stream.seekg(0, std::ios::end);
-		std::streamoff length = stream.tellg() - pos;
-		stream.seekg(pos);
-
-		if (stream.fail() || pos < 0) return status_io_error;
-
-		// guard against huge files
-		size_t read_length = static_cast<size_t>(length);
-
-		if (static_cast<std::streamsize>(read_length) != length || length < 0) return status_out_of_memory;
-
-		// read stream data into memory (guard against stream exceptions with buffer holder)
-		buffer_holder buffer(xml_memory::allocate((read_length > 0 ? read_length : 1) * sizeof(T)), xml_memory::deallocate);
-		if (!buffer.data) return status_out_of_memory;
-
-		stream.read(static_cast<T*>(buffer.data), static_cast<std::streamsize>(read_length));
-
-		// read may set failbit | eofbit in case gcount() is less than read_length (i.e. line ending conversion), so check for other I/O errors
-		if (stream.bad() || (!stream.eof() && stream.fail())) return status_io_error;
-
-		// return buffer
-		size_t actual_length = static_cast<size_t>(stream.gcount());
-		assert(actual_length <= read_length);
-
-		*out_buffer = buffer.release();
-		*out_size = actual_length * sizeof(T);
-
-		return status_ok;
-	}
-
-	template <typename T> PUGI__FN xml_parse_result load_stream_impl(xml_document& doc, std::basic_istream<T>& stream, unsigned int options, xml_encoding encoding)
-	{
-		void* buffer = 0;
-		size_t size = 0;
-
-		// load stream to memory (using seek-based implementation if possible, since it's faster and takes less memory)
-		xml_parse_status status = (stream.tellg() < 0) ? load_stream_data_noseek(stream, &buffer, &size) : load_stream_data_seek(stream, &buffer, &size);
-		if (status != status_ok) return make_parse_result(status);
-
-		return doc.load_buffer_inplace_own(buffer, size, options, encoding);
-	}
-#endif
-
 #if defined(PUGI__MSVC_CRT_VERSION) || defined(__BORLANDC__) || (defined(__MINGW32__) && !defined(__STRICT_ANSI__))
 	PUGI__FN FILE* open_file_wide(const wchar_t* path, const wchar_t* mode)
 	{
@@ -3663,32 +3478,6 @@ namespace pugi
 		size_t result = fwrite(data, 1, size, static_cast<FILE*>(file));
 		(void)!result; // unfortunately we can't do proper error handling here
 	}
-
-#ifndef PUGIXML_NO_STL
-	PUGI__FN xml_writer_stream::xml_writer_stream(std::basic_ostream<char, std::char_traits<char> >& stream): narrow_stream(&stream), wide_stream(0)
-	{
-	}
-
-	PUGI__FN xml_writer_stream::xml_writer_stream(std::basic_ostream<wchar_t, std::char_traits<wchar_t> >& stream): narrow_stream(0), wide_stream(&stream)
-	{
-	}
-
-	PUGI__FN void xml_writer_stream::write(const void* data, size_t size)
-	{
-		if (narrow_stream)
-		{
-			assert(!wide_stream);
-			narrow_stream->write(reinterpret_cast<const char*>(data), static_cast<std::streamsize>(size));
-		}
-		else
-		{
-			assert(wide_stream);
-			assert(size % sizeof(wchar_t) == 0);
-
-			wide_stream->write(reinterpret_cast<const wchar_t*>(data), static_cast<std::streamsize>(size / sizeof(wchar_t)));
-		}
-	}
-#endif
 
 	PUGI__FN xml_tree_walker::xml_tree_walker(): _depth(0)
 	{
@@ -4526,27 +4315,6 @@ namespace pugi
 		return xml_node();
 	}
 
-#ifndef PUGIXML_NO_STL
-	PUGI__FN string_t xml_node::path(char_t delimiter) const
-	{
-		xml_node cursor = *this; // Make a copy.
-		
-		string_t result = cursor.name();
-
-		while (cursor.parent())
-		{
-			cursor = cursor.parent();
-			
-			string_t temp = cursor.name();
-			temp += delimiter;
-			temp += result;
-			result.swap(temp);
-		}
-
-		return result;
-	}
-#endif
-
 	PUGI__FN xml_node xml_node::first_element_by_path(const char_t* path_, char_t delimiter) const
 	{
 		xml_node found = *this; // Current search context.
@@ -4660,22 +4428,6 @@ namespace pugi
 
 		impl::node_output(buffered_writer, *this, indent, flags, depth);
 	}
-
-#ifndef PUGIXML_NO_STL
-	PUGI__FN void xml_node::print(std::basic_ostream<char, std::char_traits<char> >& stream, const char_t* indent, unsigned int flags, xml_encoding encoding, unsigned int depth) const
-	{
-		xml_writer_stream writer(stream);
-
-		print(writer, indent, flags, encoding, depth);
-	}
-
-	PUGI__FN void xml_node::print(std::basic_ostream<wchar_t, std::char_traits<wchar_t> >& stream, const char_t* indent, unsigned int flags, unsigned int depth) const
-	{
-		xml_writer_stream writer(stream);
-
-		print(writer, indent, flags, encoding_wchar, depth);
-	}
-#endif
 
 	PUGI__FN ptrdiff_t xml_node::offset_debug() const
 	{
@@ -5178,21 +4930,6 @@ namespace pugi
 		}
 	}
 
-#ifndef PUGIXML_NO_STL
-	PUGI__FN xml_parse_result xml_document::load(std::basic_istream<char, std::char_traits<char> >& stream, unsigned int options, xml_encoding encoding)
-	{
-		reset();
-
-		return impl::load_stream_impl(*this, stream, options, encoding);
-	}
-
-	PUGI__FN xml_parse_result xml_document::load(std::basic_istream<wchar_t, std::char_traits<wchar_t> >& stream, unsigned int options)
-	{
-		reset();
-
-		return impl::load_stream_impl(*this, stream, options, encoding_wchar);
-	}
-#endif
 
 	PUGI__FN xml_parse_result xml_document::load(const char_t* contents, unsigned int options)
 	{
@@ -5296,22 +5033,6 @@ namespace pugi
 		impl::node_output(buffered_writer, *this, indent, flags, 0);
 	}
 
-#ifndef PUGIXML_NO_STL
-	PUGI__FN void xml_document::save(std::basic_ostream<char, std::char_traits<char> >& stream, const char_t* indent, unsigned int flags, xml_encoding encoding) const
-	{
-		xml_writer_stream writer(stream);
-
-		save(writer, indent, flags, encoding);
-	}
-
-	PUGI__FN void xml_document::save(std::basic_ostream<wchar_t, std::char_traits<wchar_t> >& stream, const char_t* indent, unsigned int flags) const
-	{
-		xml_writer_stream writer(stream);
-
-		save(writer, indent, flags, encoding_wchar);
-	}
-#endif
-
 	PUGI__FN bool xml_document::save_file(const char* path_, const char_t* indent, unsigned int flags, xml_encoding encoding) const
 	{
 		FILE* file = fopen(path_, (flags & format_save_file_text) ? "w" : "wb");
@@ -5333,32 +5054,6 @@ namespace pugi
 		return xml_node();
 	}
 
-#ifndef PUGIXML_NO_STL
-	PUGI__FN std::string PUGIXML_FUNCTION as_utf8(const wchar_t* str)
-	{
-		assert(str);
-
-		return impl::as_utf8_impl(str, wcslen(str));
-	}
-
-	PUGI__FN std::string PUGIXML_FUNCTION as_utf8(const std::basic_string<wchar_t>& str)
-	{
-		return impl::as_utf8_impl(str.c_str(), str.size());
-	}
-	
-	PUGI__FN std::basic_string<wchar_t> PUGIXML_FUNCTION as_wide(const char* str)
-	{
-		assert(str);
-
-		return impl::as_wide_impl(str, strlen(str));
-	}
-	
-	PUGI__FN std::basic_string<wchar_t> PUGIXML_FUNCTION as_wide(const std::string& str)
-	{
-		return impl::as_wide_impl(str.c_str(), str.size());
-	}
-#endif
-
 	PUGI__FN void PUGIXML_FUNCTION set_memory_management_functions(allocation_function allocate, deallocation_function deallocate)
 	{
 		impl::xml_memory::allocate = allocate;
@@ -5375,50 +5070,6 @@ namespace pugi
 		return impl::xml_memory::deallocate;
 	}
 }
-
-#if !defined(PUGIXML_NO_STL) && (defined(_MSC_VER) || defined(__ICC))
-namespace std
-{
-	// Workarounds for (non-standard) iterator category detection for older versions (MSVC7/IC8 and earlier)
-	PUGI__FN std::bidirectional_iterator_tag _Iter_cat(const pugi::xml_node_iterator&)
-	{
-		return std::bidirectional_iterator_tag();
-	}
-
-	PUGI__FN std::bidirectional_iterator_tag _Iter_cat(const pugi::xml_attribute_iterator&)
-	{
-		return std::bidirectional_iterator_tag();
-	}
-
-	PUGI__FN std::forward_iterator_tag _Iter_cat(const pugi::xml_named_node_iterator&)
-	{
-		return std::forward_iterator_tag();
-	}
-}
-#endif
-
-#if !defined(PUGIXML_NO_STL) && defined(__SUNPRO_CC)
-namespace std
-{
-	// Workarounds for (non-standard) iterator category detection
-	PUGI__FN std::bidirectional_iterator_tag __iterator_category(const pugi::xml_node_iterator&)
-	{
-		return std::bidirectional_iterator_tag();
-	}
-
-	PUGI__FN std::bidirectional_iterator_tag __iterator_category(const pugi::xml_attribute_iterator&)
-	{
-		return std::bidirectional_iterator_tag();
-	}
-
-	PUGI__FN std::forward_iterator_tag __iterator_category(const pugi::xml_named_node_iterator&)
-	{
-		return std::forward_iterator_tag();
-	}
-}
-#endif
-
-#ifndef PUGIXML_NO_XPATH
 
 // STL replacements
 PUGI__NS_BEGIN
@@ -5668,15 +5319,11 @@ PUGI__NS_BEGIN
 		size_t _root_size;
 
 	public:
-	#ifdef PUGIXML_NO_EXCEPTIONS
 		jmp_buf* error_handler;
-	#endif
 
 		xpath_allocator(xpath_memory_block* root, size_t root_size = 0): _root(root), _root_size(root_size)
 		{
-		#ifdef PUGIXML_NO_EXCEPTIONS
 			error_handler = 0;
-		#endif
 		}
 		
 		void* allocate_nothrow(size_t size)
@@ -5715,12 +5362,8 @@ PUGI__NS_BEGIN
 
 			if (!result)
 			{
-			#ifdef PUGIXML_NO_EXCEPTIONS
 				assert(error_handler);
 				longjmp(*error_handler, 1);
-			#else
-				throw std::bad_alloc();
-			#endif
 			}
 
 			return result;
@@ -5834,9 +5477,7 @@ PUGI__NS_BEGIN
 		xpath_allocator temp;
 		xpath_stack stack;
 
-	#ifdef PUGIXML_NO_EXCEPTIONS
 		jmp_buf error_handler;
-	#endif
 
 		xpath_stack_data(): result(blocks + 0), temp(blocks + 1)
 		{
@@ -5845,9 +5486,7 @@ PUGI__NS_BEGIN
 			stack.result = &result;
 			stack.temp = &temp;
 
-		#ifdef PUGIXML_NO_EXCEPTIONS
 			result.error_handler = temp.error_handler = &error_handler;
-		#endif
 		}
 
 		~xpath_stack_data()
@@ -8725,29 +8364,19 @@ PUGI__NS_BEGIN
 
 		xpath_parse_result* _result;
 
-	#ifdef PUGIXML_NO_EXCEPTIONS
 		jmp_buf _error_handler;
-	#endif
 
 		void throw_error(const char* message)
 		{
 			_result->error = message;
 			_result->offset = _lexer.current_pos() - _query;
 
-		#ifdef PUGIXML_NO_EXCEPTIONS
 			longjmp(_error_handler, 1);
-		#else
-			throw xpath_exception(*_result);
-		#endif
 		}
 
 		void throw_error_oom()
 		{
-		#ifdef PUGIXML_NO_EXCEPTIONS
 			throw_error("Out of memory");
-		#else
-			throw std::bad_alloc();
-		#endif
 		}
 
 		void* alloc_node()
@@ -9568,13 +9197,9 @@ PUGI__NS_BEGIN
 		{
 			xpath_parser parser(query, variables, alloc, result);
 
-		#ifdef PUGIXML_NO_EXCEPTIONS
 			int error = setjmp(parser._error_handler);
 
 			return (error == 0) ? parser.parse() : 0;
-		#else
-			return parser.parse();
-		#endif
 		}
 	};
 
@@ -9612,9 +9237,7 @@ PUGI__NS_BEGIN
 	{
 		if (!impl) return xpath_string();
 
-	#ifdef PUGIXML_NO_EXCEPTIONS
 		if (setjmp(sd.error_handler)) return xpath_string();
-	#endif
 
 		xpath_context c(n, 1, 1);
 
@@ -9624,22 +9247,6 @@ PUGI__NS_END
 
 namespace pugi
 {
-#ifndef PUGIXML_NO_EXCEPTIONS
-	PUGI__FN xpath_exception::xpath_exception(const xpath_parse_result& result_): _result(result_)
-	{
-		assert(_result.error);
-	}
-	
-	PUGI__FN const char* xpath_exception::what() const throw()
-	{
-		return _result.error;
-	}
-
-	PUGI__FN const xpath_parse_result& xpath_exception::result() const
-	{
-		return _result;
-	}
-#endif
 	
 	PUGI__FN xpath_node::xpath_node()
 	{
@@ -9727,13 +9334,7 @@ namespace pugi
 			xpath_node* storage = static_cast<xpath_node*>(impl::xml_memory::allocate(size_ * sizeof(xpath_node)));
 
 			if (!storage)
-			{
-			#ifdef PUGIXML_NO_EXCEPTIONS
 				return;
-			#else
-				throw std::bad_alloc();
-			#endif
-			}
 
 			memcpy(storage, begin_, size_ * sizeof(xpath_node));
 			
@@ -10025,13 +9626,7 @@ namespace pugi
 		impl::xpath_query_impl* qimpl = impl::xpath_query_impl::create();
 
 		if (!qimpl)
-		{
-		#ifdef PUGIXML_NO_EXCEPTIONS
 			_result.error = "Out of memory";
-		#else
-			throw std::bad_alloc();
-		#endif
-		}
 		else
 		{
 			impl::buffer_holder impl_holder(qimpl, impl::xpath_query_impl::destroy);
@@ -10065,9 +9660,7 @@ namespace pugi
 		impl::xpath_context c(n, 1, 1);
 		impl::xpath_stack_data sd;
 
-	#ifdef PUGIXML_NO_EXCEPTIONS
 		if (setjmp(sd.error_handler)) return false;
-	#endif
 		
 		return static_cast<impl::xpath_query_impl*>(_impl)->root->eval_boolean(c, sd.stack);
 	}
@@ -10079,21 +9672,10 @@ namespace pugi
 		impl::xpath_context c(n, 1, 1);
 		impl::xpath_stack_data sd;
 
-	#ifdef PUGIXML_NO_EXCEPTIONS
 		if (setjmp(sd.error_handler)) return impl::gen_nan();
-	#endif
 
 		return static_cast<impl::xpath_query_impl*>(_impl)->root->eval_number(c, sd.stack);
 	}
-
-#ifndef PUGIXML_NO_STL
-	PUGI__FN string_t xpath_query::evaluate_string(const xpath_node& n) const
-	{
-		impl::xpath_stack_data sd;
-
-		return impl::evaluate_string_impl(static_cast<impl::xpath_query_impl*>(_impl), n, sd).c_str();
-	}
-#endif
 
 	PUGI__FN size_t xpath_query::evaluate_string(char_t* buffer, size_t capacity, const xpath_node& n) const
 	{
@@ -10123,22 +9705,13 @@ namespace pugi
 
 		if (root->rettype() != xpath_type_node_set)
 		{
-		#ifdef PUGIXML_NO_EXCEPTIONS
 			return xpath_node_set();
-		#else
-			xpath_parse_result res;
-			res.error = "Expression does not evaluate to node set";
-
-			throw xpath_exception(res);
-		#endif
 		}
 		
 		impl::xpath_context c(n, 1, 1);
 		impl::xpath_stack_data sd;
 
-	#ifdef PUGIXML_NO_EXCEPTIONS
 		if (setjmp(sd.error_handler)) return xpath_node_set();
-	#endif
 
 		impl::xpath_node_set_raw r = root->eval_node_set(c, sd.stack);
 
@@ -10187,8 +9760,6 @@ namespace pugi
 		return query.evaluate_node_set(*this);
 	}
 }
-
-#endif
 
 #ifdef __BORLANDC__
 #	pragma option pop
