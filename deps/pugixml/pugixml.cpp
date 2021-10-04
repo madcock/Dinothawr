@@ -3452,19 +3452,6 @@ PUGI__NS_BEGIN
 	}
 #endif
 
-	PUGI__FN bool save_file_impl(const xml_document& doc, FILE* file, const char_t* indent, unsigned int flags, xml_encoding encoding)
-	{
-		if (!file) return false;
-
-		xml_writer_file writer(file);
-		doc.save(writer, indent, flags, encoding);
-
-		int result = ferror(file);
-
-		fclose(file);
-
-		return result == 0;
-	}
 PUGI__NS_END
 
 namespace pugi
@@ -5031,18 +5018,6 @@ namespace pugi
 		}
 
 		impl::node_output(buffered_writer, *this, indent, flags, 0);
-	}
-
-	PUGI__FN bool xml_document::save_file(const char* path_, const char_t* indent, unsigned int flags, xml_encoding encoding) const
-	{
-		FILE* file = fopen(path_, (flags & format_save_file_text) ? "w" : "wb");
-		return impl::save_file_impl(*this, file, indent, flags, encoding);
-	}
-
-	PUGI__FN bool xml_document::save_file(const wchar_t* path_, const char_t* indent, unsigned int flags, xml_encoding encoding) const
-	{
-		FILE* file = impl::open_file_wide(path_, (flags & format_save_file_text) ? L"w" : L"wb");
-		return impl::save_file_impl(*this, file, indent, flags, encoding);
 	}
 
 	PUGI__FN xml_node xml_document::document_element() const
