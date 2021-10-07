@@ -34,13 +34,6 @@ namespace Blit
          ((1u << green_bits) - 1) << green_shift |
          ((1u << blue_bits)  - 1) << blue_shift;
 
-#if 0
-      static_assert((alpha_bits + red_bits + green_bits + blue_bits) <= CHAR_BIT * sizeof(T),
-            "ARGB bitmasks do not match with pixel format.");
-      static_assert(alpha_bits + red_bits && green_bits && blue_bits,
-            "All colors must have at least 1 bit.");
-#endif
-
       PixelBase(T pixel) : pixel(pixel) {}
       PixelBase() : pixel(0) {}
 

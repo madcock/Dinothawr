@@ -61,17 +61,6 @@ namespace Blit
       int width      = image.attribute("width").as_int();
       int height     = image.attribute("height").as_int();
 
-#if 0
-      std::cerr << "Adding tileset:" <<
-         " Name: " << node.attribute("name").value() <<
-         " Gid: " << first_gid <<
-         " Tilewidth: " << tilewidth <<
-         " Tileheight: " << tileheight <<
-         " Source: " << source <<
-         " Width: " << width <<
-         " Height: " << height << std::endl;
-#endif
-
       if (!width || !height || !tilewidth || !tileheight)
          throw std::logic_error("Tilemap is malformed.");
 
@@ -82,13 +71,6 @@ namespace Blit
          throw std::logic_error("Tilemap geometry does not correspond with image values.");
 
       std::map<std::basic_string<char>, std::basic_string<char> > global_attr = get_attributes(node.child("properties"), "property");
-
-#if 0
-      std::cerr << "Dumping attrs:" << std::endl;
-      for (auto& attr : global_attr)
-         std::cerr << "Found global attr (" << attr.first << " => " << attr.second << ")." << std::endl;
-      std::cerr << "Dumped attrs." << std::endl;
-#endif
 
       for (int y = 0; y < height; y += tileheight)
       {
@@ -126,13 +108,6 @@ namespace Blit
 
       if (!width || !height)
          throw std::logic_error("Layer is empty.");
-
-#if 0
-      std::cerr << "Adding layer:" <<
-         " Name: " << node.attribute("name").value() <<
-         " Width: " << width <<
-         " Height: " << height << std::endl;
-#endif
 
       Utils::xml_node_walker walk{node.child("data"), "tile", "gid"};
       int index = 0;
