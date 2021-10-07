@@ -93,11 +93,6 @@ extern int ov_open(FILE *f,OggVorbis_File *vf,const char *initial,long ibytes);
 extern int ov_open_callbacks(void *datasource, OggVorbis_File *vf,
                 const char *initial, long ibytes, ov_callbacks callbacks);
 
-extern int ov_test(FILE *f,OggVorbis_File *vf,const char *initial,long ibytes);
-extern int ov_test_callbacks(void *datasource, OggVorbis_File *vf,
-                const char *initial, long ibytes, ov_callbacks callbacks);
-extern int ov_test_open(OggVorbis_File *vf);
-
 extern long ov_bitrate(OggVorbis_File *vf,int i);
 extern long ov_bitrate_instant(OggVorbis_File *vf);
 extern long ov_streams(OggVorbis_File *vf);
@@ -125,15 +120,9 @@ extern ogg_int64_t ov_pcm_tell(OggVorbis_File *vf);
 extern double ov_time_tell(OggVorbis_File *vf);
 
 extern vorbis_info *ov_info(OggVorbis_File *vf,int link);
-extern vorbis_comment *ov_comment(OggVorbis_File *vf,int link);
 
 extern long ov_read_float(OggVorbis_File *vf,float ***pcm_channels,int samples,
                           int *bitstream);
-extern long ov_read_filter(OggVorbis_File *vf,char *buffer,int length,
-                          int bigendianp,int word,int sgned,int *bitstream,
-                          void (*filter)(float **pcm,long channels,long samples,void *filter_param),void *filter_param);
-extern long ov_read(OggVorbis_File *vf,char *buffer,int length,
-                    int bigendianp,int word,int sgned,int *bitstream);
 extern int ov_crosslap(OggVorbis_File *vf1,OggVorbis_File *vf2);
 
 extern int ov_halfrate(OggVorbis_File *vf,int flag);
