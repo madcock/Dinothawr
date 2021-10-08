@@ -166,28 +166,11 @@ extern void     vorbis_info_init(vorbis_info *vi);
 extern void     vorbis_info_clear(vorbis_info *vi);
 extern int      vorbis_info_blocksize(vorbis_info *vi,int zo);
 extern void     vorbis_comment_init(vorbis_comment *vc);
-extern void     vorbis_comment_add(vorbis_comment *vc, const char *comment);
-extern void     vorbis_comment_add_tag(vorbis_comment *vc,
-                                       const char *tag, const char *contents);
-extern char    *vorbis_comment_query(vorbis_comment *vc, const char *tag, int count);
-extern int      vorbis_comment_query_count(vorbis_comment *vc, const char *tag);
 extern void     vorbis_comment_clear(vorbis_comment *vc);
 
 extern int      vorbis_block_init(vorbis_dsp_state *v, vorbis_block *vb);
 extern int      vorbis_block_clear(vorbis_block *vb);
 extern void     vorbis_dsp_clear(vorbis_dsp_state *v);
-extern double   vorbis_granule_time(vorbis_dsp_state *v,
-                                    ogg_int64_t granulepos);
-
-extern const char *vorbis_version_string(void);
-
-/* Vorbis PRIMITIVES: analysis/DSP layer ****************************/
-
-extern int      vorbis_commentheader_out(vorbis_comment *vc, ogg_packet *op);
-
-extern int      vorbis_bitrate_addblock(vorbis_block *vb);
-extern int      vorbis_bitrate_flushpacket(vorbis_dsp_state *vd,
-                                           ogg_packet *op);
 
 /* Vorbis PRIMITIVES: synthesis layer *******************************/
 extern int      vorbis_synthesis_idheader(ogg_packet *op);

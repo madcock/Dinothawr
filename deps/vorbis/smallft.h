@@ -27,7 +27,6 @@ typedef struct {
 } drft_lookup;
 
 extern void drft_forward(drft_lookup *l,float *data);
-extern void drft_backward(drft_lookup *l,float *data);
 extern void drft_init(drft_lookup *l,int n);
 extern void drft_clear(drft_lookup *l);
 
