@@ -26,7 +26,6 @@
 #include "misc.h"
 #include "scales.h"
 
-#include <stdio.h>
 
 #define floor1_rangedB 140 /* floor 1 fixed at -140dB to 0dB range */
 
@@ -62,11 +61,6 @@ static void floor1_free_info(vorbis_info_floor *i){
 static void floor1_free_look(vorbis_look_floor *i){
   vorbis_look_floor1 *look=(vorbis_look_floor1 *)i;
   if(look){
-    /*fprintf(stderr,"floor 1 bit usage %f:%f (%f total)\n",
-            (float)look->phrasebits/look->frames,
-            (float)look->postbits/look->frames,
-            (float)(look->postbits+look->phrasebits)/look->frames);*/
-
     memset(look,0,sizeof(*look));
     _ogg_free(look);
   }
@@ -904,9 +898,6 @@ int floor1_encode(oggpack_buffer *opb,vorbis_block *vb,
           if(out[j+k]<(books+book)->entries)
             look->postbits+=vorbis_book_encode(books+book,
                                                out[j+k],opb);
-          /*else
-            fprintf(stderr,"+!");*/
-
         }
       }
       j+=cdim;

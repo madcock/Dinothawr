@@ -2,7 +2,6 @@
 #include "pugixml/pugixml.hpp"
 #include "rpng_front.h"
 #include <stdexcept>
-#include <stdio.h>
 #include <new>
 
 using namespace pugi;

@@ -16,7 +16,6 @@
  ********************************************************************/
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <math.h>
@@ -974,9 +973,6 @@ int ov_clear(OggVorbis_File *vf){
       (vf->callbacks.close_func)(vf->datasource);
     memset(vf,0,sizeof(*vf));
   }
-#ifdef DEBUG_LEAKS
-  _VDBG_dump();
-#endif
   return(0);
 }
 
