@@ -103,8 +103,11 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
 
 void retro_set_environment(retro_environment_t cb)
 {
+   bool no_content = true;
+
    environ_cb = cb;
    libretro_set_core_options(environ_cb);
+   environ_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_content);
 }
 
 void retro_set_audio_sample(retro_audio_sample_t cb)
@@ -249,6 +252,64 @@ void retro_reset(void)
 
 bool retro_load_game(const struct retro_game_info* info)
 {
+   if (info)
+   {
+      game_path     = info->path;
+      game_path_dir = basedir(game_path);
+   }
+   else
+   {
+      const char *system_dir = NULL;
+      FILE *game_file        = NULL;
+      bool game_file_exists  = false;
+
+      /* Get system directory */
+      if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &system_dir) &&
+          system_dir)
+      {
+         game_path_dir = join(system_dir, "/", "dinothawr");
+         game_path     = join(game_path_dir, "/", "dinothawr.game");
+
+         game_file = fopen(game_path.c_str(), "r");
+         if (game_file)
+         {
+            game_file_exists = true;
+            fclose(game_file);
+         }
+      }
+
+      if (!game_file_exists)
+      {
+         unsigned msg_interface_version = 0;
+         environ_cb(RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION,
+               &msg_interface_version);
+
+         if (msg_interface_version >= 1)
+         {
+            struct retro_message_ext msg = {
+               "Dinothawr game files missing from frontend system directory",
+               3000,
+               3,
+               RETRO_LOG_ERROR,
+               RETRO_MESSAGE_TARGET_ALL,
+               RETRO_MESSAGE_TYPE_NOTIFICATION,
+               -1
+            };
+            environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE_EXT, &msg);
+         }
+         else
+         {
+            struct retro_message msg = {
+               "Dinothawr game files missing from frontend system directory",
+               180
+            };
+            environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &msg);
+         }
+
+         return false;
+      }
+   }
+
    struct retro_audio_callback cb = { audio_callback, audio_set_state };
    use_audio_cb = environ_cb(RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK, &cb);
 
@@ -264,9 +325,6 @@ bool retro_load_game(const struct retro_game_info* info)
       { 0 },
    };
 
-   if (!info)
-      return false;
-
    environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
 
    time_reference = 1000000 / 60;
@@ -274,11 +332,9 @@ bool retro_load_game(const struct retro_game_info* info)
    struct retro_frame_time_callback frame_cb = { frame_time_cb, time_reference };
    use_frame_time_cb = environ_cb(RETRO_ENVIRONMENT_SET_FRAME_TIME_CALLBACK, &frame_cb);
 
-   game_path     = info->path;
-   game_path_dir = basedir(game_path);
    load_game(game_path);
 
-   mixer         = Audio::Mixer();
+   mixer = Audio::Mixer();
 
    retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
    environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt);
