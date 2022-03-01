@@ -226,6 +226,16 @@ else ifeq ($(platform), vita)
 	PLATFORM_DEFINES += -DVITA -std=gnu++0x
 	STATIC_LINKING = 1
 
+# GCW0 (OpenDingux and OpenDingux Beta)
+else ifeq ($(platform), gcw0)
+	TARGET := $(TARGET_NAME)_libretro.so
+	CC = /opt/gcw0-toolchain/usr/bin/mipsel-linux-gcc
+	CXX = /opt/gcw0-toolchain/usr/bin/mipsel-linux-g++
+	AR = /opt/gcw0-toolchain/usr/bin/mipsel-linux-ar
+	SHARED := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+	fpic := -fPIC
+	PLATFORM_DEFINES += -DDINGUX -fomit-frame-pointer -march=mips32 -mtune=mips32r2 -mhard-float
+
 # Windows MSVC 2017 all architectures
 else ifneq (,$(findstring windows_msvc2017,$(platform)))
 
